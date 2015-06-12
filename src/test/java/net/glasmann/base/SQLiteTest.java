@@ -61,7 +61,7 @@ public class SQLiteTest {
 
             assertEquals(list.get(2).getString("value"), "test3");
 
-//            db.close();
+            db.close();
 
 
             SQLite dbV2 = SQLite.db(TestV2.class, dbf);
@@ -80,7 +80,7 @@ public class SQLiteTest {
 
             assertEquals(list2.get(2).getString("value_2"), "test3");
 
-//            dbV2.close();
+            dbV2.close();
 
         }
 

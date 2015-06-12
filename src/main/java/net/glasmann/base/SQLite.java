@@ -21,17 +21,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~
- *
- * Created by ron on 9/16/14.
+ * A wrapper around sqlite4java (which in turn wraps SQLite).
  */
 public class SQLite {
 
     // location on the file system for use by this wrapper, native libs will be deployed here
     public static final File SQLITE_HOME = new File(System.getProperty("user.home"), ".sqlite");
-
-    // format dates as Strings for storage
-//    private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S z");
-    private static final int DEFAULT_TIMEOUT = 1000;
 
     // instance of this class for storage database metadata, versions, etc
     private static SQLite s_infoDb;
@@ -88,15 +83,22 @@ public class SQLite {
     }
 
     /**
-     *
-     * @param defClass
-     * @param <T>
-     * @return
+     * Creates and returns an instance of this class configured appropriately for the specified
+     * database definition class.  The database schema as defined in the specified Def class 
+     * will be created and/or migrated as needed when this class is instantiated.
+     * @param defClass A class that extends SQLite.Def and creates a versioned schema when constructed
+     * @return an instance of SQLite
      * @throws SQLiteException
      */
     public static <T extends Def> SQLite db(Class<T> defClass) throws SQLiteException {
         return db(defClass, null);
     }
+    
+    /**
+     * @see SQLite db(Class<T> defClass)
+     * @param dbFile The file on disk that holds the SQLite data
+     * @throws SQLiteException
+     */
     public static <T extends Def> SQLite db(Class<T> defClass, File dbFile) throws SQLiteException {
         Map<File, SQLite> fileDbMap = s_dbMap.get(defClass);
         if (fileDbMap == null) {
@@ -128,29 +130,43 @@ public class SQLite {
         return db;
     }
 
+    /**
+     * Returns an instance of SQLite for the metadata db manged by this class.  Contains versions, etc.
+     * @return
+     */
     public static SQLite info() {
         return s_infoDb;
     }
 
-    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
+    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
 
     private Def def;
-//    private SQLiteConnection _conn;
-//    private SQLiteConnection _connReadOnly;
     private File _dbFile = null;
     private SQLiteQueue _q = null;
 
+    /**
+     * Construct an instance of SQLite for the specified database Def and File
+     * @param dbDef
+     * @param dbFile
+     */
     public SQLite(Def dbDef, File dbFile) {
         this.def = dbDef;
         this._dbFile = dbFile;
-        this._q = new SQLiteQueue(this._dbFile);
-        this._q.start();
+        open();
     }
 
     public Def def() { return def; }
 
     public File file() { return _dbFile; }
 
+    public void open() {
+    	if (_q != null && !_q.isStopped()) {
+    		return;
+    	}
+        this._q = new SQLiteQueue(this._dbFile);
+        this._q.start();
+    }
+    
     public int version() throws SQLiteException {
         List<Record> list = info().query(new SQL("select version from versions where db_name = ?").set(1, def.getName()));
         if (list != null && list.size() > 0) {
@@ -172,7 +188,6 @@ public class SQLite {
                 info().execute(new SQL("update versions set version = ? where db_name = ?").set(1, i + 1).set(2, def.getName()));
             }
         }
-//        info().close();
     }
 
     public List<Record> query(final SQL sql) throws SQLiteException {
@@ -180,7 +195,9 @@ public class SQLite {
         if (!_dbFile.exists()) {
             return new ArrayList<Record>();
         }
-        
+        if (_q.isStopped()) {
+        	throw new SQLiteException(SQLiteConstants.SQLITE_ERROR, this.def().getName() + " has been closed and the job q is stopped.");
+        }
         return _q.execute(new SQLiteJob<List<Record>>() {
         	protected List<Record> job(SQLiteConnection connection) throws SQLiteException {
                 List<Record> list = new ArrayList<Record>();
@@ -205,6 +222,10 @@ public class SQLite {
 
     public List<List<Record>> execute(final Tx tx) throws SQLiteException {
 
+        if (_q.isStopped()) {
+        	throw new SQLiteException(SQLiteConstants.SQLITE_ERROR, this.def().getName() + " has been closed and the job q is stopped.");
+        }
+
         return _q.execute(new SQLiteJob<List<List<Record>>>() {
         	protected List<List<Record>> job(SQLiteConnection connection) throws SQLiteException {
     	
@@ -214,7 +235,6 @@ public class SQLite {
 //		            s_log.info(sql);
 		            if (sql.trim().toLowerCase().startsWith("select")) {
 		                List<Record> list2 = new ArrayList<Record>();
-		//                SQLiteStatement st = conn(true).prepare(sql);
 		                SQLiteStatement st = connection.prepare(sql);
 		                try {
 			                while (st.step()) {
@@ -231,7 +251,6 @@ public class SQLite {
 		                }
 		            }
 		            else {
-		//                conn(true).exec(sql);
 		                connection.exec(sql);
 		            }
 		        }
@@ -242,6 +261,10 @@ public class SQLite {
     }
     public List<Record> execute(final SQL st) throws SQLiteException {
 
+        if (_q.isStopped()) {
+        	throw new SQLiteException(SQLiteConstants.SQLITE_ERROR, this.def().getName() + " has been closed and the job q is stopped.");
+        }
+
         return _q.execute(new SQLiteJob<List<Record>>() {
         	protected List<Record> job(SQLiteConnection connection) throws SQLiteException {
     	
@@ -250,7 +273,6 @@ public class SQLite {
 
         		List<Record> list2 = new ArrayList<Record>();
 	            if (sql.trim().toLowerCase().startsWith("select")) {
-	//                SQLiteStatement st = conn(true).prepare(sql);
 	                SQLiteStatement st = connection.prepare(sql);
 	                try {
 		                while (st.step()) {
@@ -266,7 +288,6 @@ public class SQLite {
 	                }
 	            }
 	            else {
-	//                conn(true).exec(sql);
 	                connection.exec(sql);
 	            }
 
@@ -277,6 +298,13 @@ public class SQLite {
         	
 	}
 
+    /**
+     * Convenience method that executes an Insert Transaction and just returns the first  
+     * List of Records
+     * @param tx
+     * @return
+     * @throws SQLiteException
+     */
     public List<Record> insert(Insert tx) throws SQLiteException {
         List<List<Record>> list  = execute(tx);
         if (list.size() > 0) {
@@ -287,59 +315,18 @@ public class SQLite {
         }
     }
 
-    public void close() {
-//        if (_conn != null) {
-//            if (_conn.isOpen()) {
-//                _conn.dispose();
-//            }
-//            _conn = null;
-//        }
-//        if (_connReadOnly != null) {
-//            if (_connReadOnly.isOpen()) {
-//                _connReadOnly.dispose();
-//            }
-//            _connReadOnly = null;
-//        }
+    /**
+     * Waits for all pending jobs to finish and then shuts down the job q.  
+     * @throws InterruptedException
+     */
+    public void close() throws InterruptedException {
+        if (_q.isStopped()) {
+        	return;
+        }
+    	_q.stop(true).join();
     }
 
-    /*
-    public SQLite timeout(int value) throws SQLiteException {
-        if (_conn == null) {
-            conn(true);
-        }
-        _conn.setBusyTimeout(value);
-        if (_connReadOnly == null) {
-            conn(false);
-        }
-        _connReadOnly.setBusyTimeout(value);
-        return this;
-    }
-
-    private SQLiteConnection conn() throws SQLiteException {
-        return conn(false);
-    }
-    private SQLiteConnection conn(boolean forWriting) throws SQLiteException {
-        if (forWriting) {
-            if (_conn == null) {
-                _conn = new SQLiteConnection(_dbFile);
-                _conn.openV2(SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_FULLMUTEX | SQLiteConstants.SQLITE_OPEN_READWRITE);
-                _conn.setBusyTimeout(DEFAULT_TIMEOUT);
-//                _conn.open();
-            }
-            return _conn;
-        }
-        else {
-            if (_connReadOnly == null) {
-                _connReadOnly = new SQLiteConnection(_dbFile);
-                _connReadOnly.openV2(SQLiteConstants.SQLITE_OPEN_FULLMUTEX | SQLiteConstants.SQLITE_OPEN_READONLY);
-                _connReadOnly.setBusyTimeout(DEFAULT_TIMEOUT);
-//                _connReadOnly.openReadonly();
-            }
-            return _connReadOnly;
-        }
-    }
-*/
-    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
+    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
 
     public static class Record {
         private Map<String, Object> _map = new HashMap<String, Object>();
@@ -393,7 +380,9 @@ public class SQLite {
         }
     }
 
-    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~
+    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
+
+    /** 
      * The SqlStatement class allows parameterized sql statements to be assembled separately from a
      * database connection. Parameters are specified as question marks ("?") in the sql statement.
      * Parameters are then "set" by specifying a 1 based index and a value.
@@ -513,7 +502,7 @@ public class SQLite {
 
     }
 
-    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
+    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
 
     public static class Tx {
 
@@ -690,11 +679,10 @@ public class SQLite {
         }
     }
 
-    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
+    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
 
     public static abstract class Def {
         private String name;
-//        private int version;
         private List<Tx> schemaUpdates = new ArrayList<Tx>();
 
         protected Def schema(int version, SQL st) {
@@ -717,20 +705,13 @@ public class SQLite {
         protected void setName(String name) {
             this.name = name;
         }
-//        public int getVersion() {
-//            return version;
-//        }
-//        protected void setVersion(int version) {
-//            this.version = version;
-//        }
     }
 
-    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
+    /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */
 
     private static class Info extends Def {
         public Info() {
             setName("database_info");
-//            setVersion(1);
             schema(1, new SQL()
                 .append("create table if not exists versions ( ")
                 .append("db_name text not null, ")
