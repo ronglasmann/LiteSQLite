@@ -15,24 +15,25 @@ Start by creating a database definition.  This is a class that extends SQLite.De
 
 Here is an example of a database Def that contains two versions.
 
-'' import net.glasmann.base.SQLite;
-'' import net.glasmann.base.SQLite.*;
-'' 
-'' public static class Test extends Def {
-'' 	public Test() {
-''			setName("test");
-''			schema(1, new SQL()
-''				.append("create table if not exists test_table ( ")
-''				.append("id integer, ")
-''				.append("value text ")
-''				.append(") ")
-''			);
-''			schema(2, new SQL()
-''				.append("create table if not exists test_table_2 (id integer, value_2 text)")
-''			);
-''		}
-''	}
+'''
+import net.glasmann.base.SQLite;
+import net.glasmann.base.SQLite.*;
 
+public static class Test extends Def {
+	public Test() {
+		setName("test");
+		schema(1, new SQL()
+			.append("create table if not exists test_table ( ")
+			.append("id integer, ")
+			.append("value text ")
+			.append(") ")
+		);
+		schema(2, new SQL()
+			.append("create table if not exists test_table_2 (id integer, value_2 text)")
+		);
+	}
+}
+'''
 ### Usage
 
 Call SQLite.db(..) specifying a class that extends SQLite.Def (and optionally a File that points to where you want the SQLite database file on disk).  Once you have the db instance you can call execute(..) and query(..).  Call close(..) when you are done with the database instance.
