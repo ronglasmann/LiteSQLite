@@ -14,8 +14,7 @@ TODO - Download, Maven, etc
 Start by creating a database definition.  This is a class that extends SQLite.Def.  In the constructor, set the name of the database and use the schema(..) method to create the structure.  Note that schema(..) takes a version number allowing you to version your database and migrate data and structures between versions as needed.  
 
 Here is an example of a database Def that contains two versions.
-
-'''
+```
 import net.glasmann.base.SQLite;
 import net.glasmann.base.SQLite.*;
 
@@ -33,7 +32,7 @@ public static class Test extends Def {
 		);
 	}
 }
-'''
+```
 ### Usage
 
 Call SQLite.db(..) specifying a class that extends SQLite.Def (and optionally a File that points to where you want the SQLite database file on disk).  Once you have the db instance you can call execute(..) and query(..).  Call close(..) when you are done with the database instance.
