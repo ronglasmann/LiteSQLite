@@ -76,8 +76,26 @@ db.execute(new Tx()
 
 ### SQList.Insert - Builder class for INSERT statements
 
-TODO
+SQLite.Insert is a builder class that simplifies and standardizes the construction of INSERT statements.  It has built-in support for incrementing integer keys and constructs the INSERT as a transaction that returns the inserted row.  The SQLite class has an insert(..) convenience method that makes it easy to access the returned row.
+
+Here is a simple example:
+```
+List<Record> inserted = db.insert(new Insert("test_table")
+	.field("id")
+	.field("value", "test value one")
+	.build()
+);
+```
 
 ### SQLite.Upsert - Builder class for INSERT | UPDATE operations
 
-TODO
+SQLite.Upsert is a builder class that simplifies and standardizes the "UPSERT" operation.  An upseet is an "update or insert" operation that will INSERT a row if a record with the specified keys does not already exist in the database.  If it does exist the existing row is updated instead.  Upsert creates a translation that will return the affected row.  The SQLite class has an upsert(..) convenience method that makes it easy to access the returned row.
+
+Here is a simple example:
+```
+List<Record> upserted = db.upsert(new Upsert("test_table")
+	.key("id", 2)
+	.field("value", "upserted two")
+	.build()
+);
+```

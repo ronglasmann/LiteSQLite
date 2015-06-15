@@ -122,7 +122,7 @@ public class SQLite {
         }
 
         SQLite db = fileDbMap.get(dbFile);
-        if (db == null) {
+        if (db == null || db._q.isStopped()) {
             db = new SQLite(def, dbFile);
             db.migrate();
             fileDbMap.put(dbFile, db);
@@ -306,6 +306,23 @@ public class SQLite {
      * @throws SQLiteException
      */
     public List<Record> insert(Insert tx) throws SQLiteException {
+        List<List<Record>> list  = execute(tx);
+        if (list.size() > 0) {
+            return list.get(0);
+        }
+        else {
+            return new ArrayList<Record>();
+        }
+    }
+
+    /**
+     * Convenience method that executes an Upsert Transaction and just returns the first  
+     * List of Records
+     * @param tx
+     * @return
+     * @throws SQLiteException
+     */
+    public List<Record> upsert(Upsert tx) throws SQLiteException {
         List<List<Record>> list  = execute(tx);
         if (list.size() > 0) {
             return list.get(0);
@@ -674,6 +691,21 @@ public class SQLite {
                 sql2.set(c, keys.get(name));
             }
             add(sql2);
+
+            // build the select statement
+            SQL sql3 = new SQL("select * from " + table);
+            add(sql3);
+            sql3.append(" where ");
+            for (String name : keys.keySet()) {
+                sql3.append(name);
+                sql3.append(" = ? and ");
+            }
+            sql3.chop(" and ");
+            c = 0;
+            for (String name : keys.keySet()) {
+                c++;
+                sql3.set(c, keys.get(name));
+            }
 
             return this;
         }

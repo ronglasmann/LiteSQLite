@@ -38,6 +38,93 @@ public class SQLiteTest {
     }
 
     @org.junit.Test
+    public void testUpsert() throws Exception {
+
+        File dbf = new File(SQLite.SQLITE_HOME, "test");
+
+        try {
+
+            SQLite db = SQLite.db(Test.class, dbf);
+
+            db.execute(new SQL("delete from test_table"));
+            
+            db.insert(new Insert("test_table")
+            	.field("id")
+            	.field("value", "test value one")
+            	.build()
+            );
+            db.insert(new Insert("test_table")
+	        	.field("id")
+	        	.field("value", "test value two")
+	        	.build()
+	        );
+            db.insert(new Insert("test_table")
+	        	.field("id")
+	        	.field("value", "test value three")
+	        	.build()
+	        );
+
+            List<Record> upserted = db.upsert(new Upsert("test_table")
+	        	.key("id", 2)
+	        	.field("value", "upserted two")
+	        	.build()
+	        );
+            
+            assertEquals(upserted.get(0).getString("value"), "upserted two");
+            
+            List<Record> upserted2 = db.upsert(new Upsert("test_table")
+	        	.key("id", 10)
+	        	.field("value", "upserted ten")
+	        	.build()
+	        );
+            
+            assertEquals(upserted2.get(0).getInt("id"), Integer.valueOf(10));
+            assertEquals(upserted2.get(0).getString("value"), "upserted ten");
+            
+            db.close();
+        }    	
+        finally {
+            dbf.delete();
+            SQLite.info().execute(new Tx()
+                .add(new SQL("delete from versions where db_name = 'test'"))
+                .add(new SQL("delete from versions where db_name = 'testv2'"))
+            );
+        }
+        
+    }
+    
+    @org.junit.Test
+    public void testInsert() throws Exception {
+
+        File dbf = new File(SQLite.SQLITE_HOME, "test");
+
+        try {
+
+            SQLite db = SQLite.db(Test.class, dbf);
+
+            db.execute(new SQL("delete from test_table"));
+            
+            List<Record> insertedRecord = db.insert(new Insert("test_table")
+            	.field("id")
+            	.field("value", "test value one")
+            	.build()
+            );
+            
+            assertEquals(insertedRecord.get(0).getString("value"), "test value one");
+            
+            db.close();
+        }    	
+        finally {
+            dbf.delete();
+            SQLite.info().execute(new Tx()
+                .add(new SQL("delete from versions where db_name = 'test'"))
+                .add(new SQL("delete from versions where db_name = 'testv2'"))
+            );
+        }
+        
+    }
+    
+    @org.junit.Test
     public void testQuery() throws Exception {
 
         File dbf = new File(SQLite.SQLITE_HOME, "test");
