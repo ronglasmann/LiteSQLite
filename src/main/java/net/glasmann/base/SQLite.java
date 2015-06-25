@@ -168,25 +168,35 @@ public class SQLite {
     }
     
     public int version() throws SQLiteException {
-        List<Record> list = info().query(new SQL("select version from versions where db_name = ?").set(1, def.getName()));
-        if (list != null && list.size() > 0) {
-            return list.get(0).getInt("version");
-        }
-        else {
-            info().execute(new Tx()
-                    .add(new SQL("insert into versions (db_name, version) values (?, 0)").set(1, def.getName()))
-            );
-            return 0;
-        }
+
+    	try {
+	    	info().open();
+	        List<Record> list = info().query(new SQL("select version from versions where db_name = ?").set(1, def.getName()));
+	
+	        if (list != null && list.size() > 0) {
+	            return list.get(0).getInt("version");
+	        }
+	        else {
+	            info().execute(new Tx()
+	                    .add(new SQL("insert into versions (db_name, version) values (?, 0)").set(1, def.getName()))
+	            );
+	            return 0;
+	        }
+    	}
+    	finally {
+            info().close();
+    	}
     }
 
     public void migrate() throws SQLiteException {
         int v = version();
         if (v < def.getSchemaUpdates().size()) {
+        	info().open();
             for (int i = v; i < def.getSchemaUpdates().size(); i++) {
                 execute(def.getSchemaUpdates().get(i));
                 info().execute(new SQL("update versions set version = ? where db_name = ?").set(1, i + 1).set(2, def.getName()));
             }
+            info().close();
         }
     }
 
@@ -336,11 +346,16 @@ public class SQLite {
      * Waits for all pending jobs to finish and then shuts down the job q.  
      * @throws InterruptedException
      */
-    public void close() throws InterruptedException {
+    public void close()  {
         if (_q.isStopped()) {
         	return;
         }
-    	_q.stop(true).join();
+    	try {
+			_q.stop(true).join();
+		} 
+    	catch (InterruptedException e) {
+    		s_log.severe(e.getMessage());
+		}
     }
 
     /** ~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~'~.~ */

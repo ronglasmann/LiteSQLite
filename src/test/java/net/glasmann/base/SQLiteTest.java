@@ -85,10 +85,12 @@ public class SQLiteTest {
         }    	
         finally {
             dbf.delete();
+            SQLite.info().open();
             SQLite.info().execute(new Tx()
                 .add(new SQL("delete from versions where db_name = 'test'"))
                 .add(new SQL("delete from versions where db_name = 'testv2'"))
             );
+            SQLite.info().close();
         }
         
     }
@@ -116,10 +118,12 @@ public class SQLiteTest {
         }    	
         finally {
             dbf.delete();
+            SQLite.info().open();
             SQLite.info().execute(new Tx()
                 .add(new SQL("delete from versions where db_name = 'test'"))
                 .add(new SQL("delete from versions where db_name = 'testv2'"))
             );
+            SQLite.info().close();
         }
         
     }
@@ -173,10 +177,12 @@ public class SQLiteTest {
 
         finally {
             dbf.delete();
+            SQLite.info().open();
             SQLite.info().execute(new Tx()
                 .add(new SQL("delete from versions where db_name = 'test'"))
                 .add(new SQL("delete from versions where db_name = 'testv2'"))
             );
+            SQLite.info().close();
         }
 
     }
