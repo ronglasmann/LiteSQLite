@@ -597,7 +597,9 @@ public class SQLite {
             for (String name : fields.keySet()) {
                 c++;
                 Object value = fields.get(name);
-                if (NEXT_VAL.equals(value.toString())) {
+                // Gregg - Check that value is not null before testing if
+                // it is the NEXT_VAL class. 12/10/2015
+                if (null != value && NEXT_VAL.equals(value.toString())) {
                     value = new SQL("(select max(" + name + ") from " + table + ") + 1");
                 }
                 sql1.set(c, value);
@@ -644,9 +646,13 @@ public class SQLite {
 
         public Upsert build() {
 
+            // Gregg - Do an Insert or Replace...this will handle
+        	// the upsert.  Also, it sets the last_insert_rowid() 
+        	// so we can get any auto-incremented values generated
+        	// at insert. 12/10/2015
             // build the insert statement
             SQL sql1 = new SQL();
-            sql1.append("insert or ignore into ");
+            sql1.append("insert or replace into ");
             sql1.append(table).append(" ");
             sql1.append("(");
             for (String name : keys.keySet()) {
@@ -680,47 +686,52 @@ public class SQLite {
             }
             add(sql1);
 
-            // build the update statement
-            SQL sql2 = new SQL();
-            sql2.append("update ");
-            sql2.append(table).append(" ");
-            sql2.append("set ");
-            for (String name : updateFields.keySet()) {
-                sql2.append(name);
-                sql2.append(" = ?,");
-            }
-            sql2.chop(",");
-            sql2.append(" where ");
-            for (String name : keys.keySet()) {
-                sql2.append(name);
-                sql2.append(" = ? and ");
-            }
-            sql2.chop(" and ");
-            c = 0;
-            for (String name : updateFields.keySet()) {
-                c++;
-                sql2.set(c, updateFields.get(name));
-            }
-            for (String name : keys.keySet()) {
-                c++;
-                sql2.set(c, keys.get(name));
-            }
-            add(sql2);
+// Gregg - commented out - 12/10/2015
+//            // build the update statement
+//            SQL sql2 = new SQL();
+//            sql2.append("update ");
+//            sql2.append(table).append(" ");
+//            sql2.append("set ");
+//            for (String name : updateFields.keySet()) {
+//                sql2.append(name);
+//                sql2.append(" = ?,");
+//            }
+//            sql2.chop(",");
+//            sql2.append(" where ");
+//            for (String name : keys.keySet()) {
+//                sql2.append(name);
+//                sql2.append(" = ? and ");
+//            }
+//            sql2.chop(" and ");
+//            c = 0;
+//            for (String name : updateFields.keySet()) {
+//                c++;
+//                sql2.set(c, updateFields.get(name));
+//            }
+//            for (String name : keys.keySet()) {
+//                c++;
+//                sql2.set(c, keys.get(name));
+//            }
+//            add(sql2);
+//
+//            // build the select statement
+//            SQL sql3 = new SQL("select * from " + table);
+//            add(sql3);
+//            sql3.append(" where ");
+//            for (String name : keys.keySet()) {
+//                sql3.append(name);
+//                sql3.append(" = ? and ");
+//            }
+//            sql3.chop(" and ");
+//            c = 0;
+//            for (String name : keys.keySet()) {
+//                c++;
+//                sql3.set(c, keys.get(name));
+//            }
 
             // build the select statement
-            SQL sql3 = new SQL("select * from " + table);
-            add(sql3);
-            sql3.append(" where ");
-            for (String name : keys.keySet()) {
-                sql3.append(name);
-                sql3.append(" = ? and ");
-            }
-            sql3.chop(" and ");
-            c = 0;
-            for (String name : keys.keySet()) {
-                c++;
-                sql3.set(c, keys.get(name));
-            }
+            SQL sql2 = new SQL("select * from " + table + " where ROWID = last_insert_rowid();");
+            add(sql2);
 
             return this;
         }
